@@ -93,7 +93,7 @@
             lista.innerHTML = "";
             dados.dados.slice(-10).reverse().forEach(dado => {
                 const item = document.createElement("li");
-                item.textContent = `🌡️ Temp: ${dado.temperatura}°C | 💧 Umidade: ${dado.umidade}% | 📏 Distância: ${dado.distancia}cm`;
+                item.textContent = `🌡️ Temp: ${dado.temperatura}°C | 📏 Distância: ${dado.distancia}cm`;
                 lista.appendChild(item);
             });
         }
