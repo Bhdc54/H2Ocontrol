@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Controle da Ventoinha</title>
+    <script>
+        async function atualizarEstado() {
+            const res = await fetch("/ventoinha");
+            const data = await res.json();
+            document.getElementById("estado").innerText = data.estado;
+        }
+
+        async function alterarEstado(novoEstado) {
+            await fetch("/ventoinha", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ estado: novoEstado })
+            });
+            atualizarEstado();
+        }
+
+        async function carregarDadosSensores() {
+            const res = await fetch("/sensores");
+            const dados = await res.json();
+            const lista = document.getElementById("dados");
+            lista.innerHTML = "";
+            dados.dados.slice(-10).reverse().forEach(dado => {
+                const item = document.createElement("li");
+                item.textContent = `🌡️ Temp: ${dado.temperatura}°C | 💧 Umidade: ${dado.umidade}% | 📏 Distância: ${dado.distancia}cm`;
+                lista.appendChild(item);
+            });
+        }
+
+        setInterval(() => {
+            carregarDadosSensores();
+            atualizarEstado();
+        }, 5000);
+    </script>
+</head>
+<body onload="atualizarEstado(); carregarDadosSensores();">
+    <h1>H2OControl - Painel de Controle</h1>
+    <p>💨 Estado atual da ventoinha: <strong id="estado">...</strong></p>
+    <button onclick="alterarEstado('ligado')">Ligar Ventoinha</button>
+    <button onclick="alterarEstado('desligado')">Desligar Ventoinha</button>
+
+    <h2>📊 Últimos dados recebidos:</h2>
+    <ul id="dados"></ul>
+</body>
+</html>
