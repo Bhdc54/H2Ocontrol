@@ -13,7 +13,7 @@ app = FastAPI()
 
 # Iniciar o Firebase com tratamento de erro
 db = None
-try:
+"""try:
     # Carrega config do Firebase a partir de variável de ambiente (recomendado no Railway)
     firebase_config = json.loads(os.environ["FIREBASE_CONFIG_JSON"])
     cred = credentials.Certificate(firebase_config)
@@ -21,7 +21,7 @@ try:
     db = firestore.client()
     print("🔥 Conectado ao Firestore!")
 except Exception as e:
-    print("⚠️ Falha ao conectar ao Firebase:", e)
+    print("⚠️ Falha ao conectar ao Firebase:", e)"""
 
 # Modelo de dados que o Arduino vai enviar
 class SensorData(BaseModel):
