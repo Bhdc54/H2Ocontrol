@@ -2,89 +2,82 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List
-import firebase_admin
-from firebase_admin import credentials, firestore
-import os
-import json
 
-# 🔥 Configuração do Firebase
-firebase_config = os.getenv("FIREBASE_CONFIG")
-
-if not firebase_config:
-    raise ValueError("Variável FIREBASE_CONFIG não encontrada!")
-
-cred = credentials.Certificate(json.loads(firebase_config))
-firebase_admin.initialize_app(cred)
-db = firestore.client()  # 📦 Conexão com o Firestore
-
-# 🚀 Cria a aplicação FastAPI
 app = FastAPI()
 
-# 📦 Modelos de dados
+# Modelo de dados que o Arduino vai enviar
 class SensorData(BaseModel):
     temperatura: float
     umidade: float
     distancia: float
     acao_ventoinha: str = None
 
+# Modelo para receber o estado da ventoinha
 class VentoinhaState(BaseModel):
     estado: str  # "ligado" ou "desligado"
 
-# 💾 Armazenamento em memória
+# Lista para armazenar os dados recebidos
 dados_sensores: List[SensorData] = []
-ventoinha_estado = "desligado"
 
-# 🔧 Função auxiliar
+# Variável para armazenar o estado da ventoinha
+ventoinha_estado = "desligado"  # Começa desligada
+
+# Função para definir o estado da ventoinha
 def set_ventoinha_estado(novo_estado: str):
     global ventoinha_estado
     if novo_estado in ["ligado", "desligado"]:
         ventoinha_estado = novo_estado
-        # Salva no Firestore (opcional)
-        db.collection("estado").document("ventoinha").set({"estado": ventoinha_estado})
-    return ventoinha_estado
-
-# 🌐 Rotas da API
-@app.get("/")
-async def health_check():
-    return {"status": "online", "app": "H2O Control"}
+        print(f"Ventoinha agora está {ventoinha_estado}")
+    else:
+        print(f"Estado inválido recebido: {novo_estado}")
 
 @app.post("/sensores")
 async def receber_dados(data: SensorData):
+    """Recebe dados do Arduino e controla a ventoinha"""
     try:
         dados_sensores.append(data)
-        
-        # Salva no Firestore (opcional)
-        doc_ref = db.collection("leituras").document()
-        doc_ref.set({
-            "temperatura": data.temperatura,
-            "umidade": data.umidade,
-            "distancia": data.distancia,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        if data.acao_ventoinha:
-            set_ventoinha_estado(data.acao_ventoinha)
-            
-        return {"status": "sucesso", "ventoinha": ventoinha_estado}
-    
+
+        print(f"Temperatura: {data.temperatura} °C")
+        print(f"Umidade: {data.umidade} %")
+        print(f"Distância: {data.distancia} cm")
+        print(f"Timestamp: {datetime.now().isoformat()}")
+
+        # Se vier alguma ação da ventoinha
+        if data.acao_ventoinha == "ligar":
+            set_ventoinha_estado("ligado")
+        elif data.acao_ventoinha == "desligar":
+            set_ventoinha_estado("desligado")
+
+        return {
+            "status": "sucesso",
+            "timestamp": datetime.now().isoformat(),
+            "ventoinha_estado_atual": ventoinha_estado
+        }
+
     except Exception as e:
-        return {"status": "erro", "detalhe": str(e)}
+        return {
+            "status": "erro",
+            "detalhe": str(e)
+        }
 
 @app.get("/sensores")
-async def listar_dados(limit: int = 10):
+async def listar_dados():
+    """Lista todos os dados recebidos"""
     return {
-        "dados": dados_sensores[-limit:],
-        "total": len(dados_sensores),
-        "firestore": db.collection("leituras").limit(limit).get()
+        "dados": dados_sensores,
+        "total": len(dados_sensores)
     }
 
 @app.get("/ventoinha")
-async def ver_estado():
+async def obter_estado_ventoinha():
+    """Consulta o estado atual da ventoinha"""
     return {"estado": ventoinha_estado}
 
 @app.post("/ventoinha")
-async def alterar_estado(estado: VentoinhaState):
+async def definir_estado_ventoinha(estado: VentoinhaState):
+    """Define manualmente o estado da ventoinha: 'ligado' ou 'desligado'"""
     if estado.estado in ["ligado", "desligado"]:
         set_ventoinha_estado(estado.estado)
-        return {"mensagem": f"Ventoinha {ventoinha_estado}"}
-    return {"erro": "Estado inválido"}
+        return {"mensagem": f"Ventoinha agora está {ventoinha_estado}"}
+    else:
+        return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
