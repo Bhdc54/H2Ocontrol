@@ -9,10 +9,16 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# Inicializa o Firebase a partir da variável de ambiente
+firebase_config_str = os.getenv("FIREBASE_CONFIG")
+if not firebase_admin._apps:  # Evita erro se já estiver inicializado
+    if firebase_config_str:
+        firebase_config_dict = json.loads(firebase_config_str)
+        cred = credentials.Certificate(firebase_config_dict)
+        firebase_admin.initialize_app(cred)
+    else:
+        raise Exception("❌ Variável de ambiente FIREBASE_CONFIG não encontrada.")
 
-# Inicializa o Firebase
-cred = credentials.Certificate("firebase_config.json")
-firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 app = FastAPI()
@@ -65,15 +71,15 @@ async def receber_dados(data: SensorData):
         elif data.acao_ventoinha == "desligar":
             set_ventoinha_estado("desligado")
 
-        # Salva no Firestore: sensores/sensor1/leituras/<doc>
+        # Salva no Firestore
         sensor_doc_ref = db.collection("sensores").document("sensor1").collection("leituras").document()
         sensor_doc_ref.set({
             "temperatura": data.temperatura,
             "umidade": data.umidade,
             "distancia": data.distancia,
             "status": True,
-            "usuario": "J8hN95ukOCxYTdMeoACxwtr9FjN2",  # ID do usuário
-            "aquarioID": "eHTUh0DKSeCp83rupL1G",         # ID do aquário
+            "usuario": "J8hN95ukOCxYTdMeoACxwtr9FjN2",
+            "aquarioID": "eHTUh0DKSeCp83rupL1G",
             "timeStamp": datetime.now().strftime("%d de %B de %Y às %H:%M:%S UTC-4"),
             "acao_ventoinha": data.acao_ventoinha,
             "estado_ventoinha": ventoinha_estado
