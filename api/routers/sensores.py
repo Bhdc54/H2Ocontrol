@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+""" from fastapi import APIRouter
 from firebase_admin import db  
 from pydantic import BaseModel
 from datetime import datetime
@@ -52,5 +52,5 @@ async def receber_dados(sensor_id: str, data: SensorData):
 async def listar_dados():
     return {
         "dados": dados_sensores,
-        "total": len(dados_sensores)
-    }
+        "total": len(dados_sensores)###
+    }"""

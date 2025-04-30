@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+"""from fastapi import APIRouter
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -26,4 +26,4 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
         set_ventoinha_estado(estado.estado)
         return {"mensagem": f"Ventoinha agora está {ventoinha_estado}"}
     else:
-        return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
+        return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}"""
