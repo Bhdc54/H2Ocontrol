@@ -4,9 +4,11 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
-
+import json
+import os
 import firebase_admin
 from firebase_admin import credentials, firestore
+
 
 # Inicializa o Firebase
 cred = credentials.Certificate("firebase_config.json")
