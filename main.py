@@ -3,25 +3,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
 
-# Firebase Admin SDK
-import firebase_admin
-from firebase_admin import credentials, firestore
-import os
-import json
-
 app = FastAPI()
-
-# Iniciar o Firebase com tratamento de erro
-db = None
-"""try:
-    # Carrega config do Firebase a partir de variável de ambiente (recomendado no Railway)
-    firebase_config = json.loads(os.environ["FIREBASE_CONFIG_JSON"])
-    cred = credentials.Certificate(firebase_config)
-    firebase_admin.initialize_app(cred)
-    db = firestore.client()
-    print("🔥 Conectado ao Firestore!")
-except Exception as e:
-    print("⚠️ Falha ao conectar ao Firebase:", e)"""
 
 # Modelo de dados que o Arduino vai enviar
 class SensorData(BaseModel):
@@ -60,16 +42,6 @@ async def receber_dados(data: SensorData):
             set_ventoinha_estado("ligado")
         elif data.acao_ventoinha == "desligar":
             set_ventoinha_estado("desligado")
-
-        # Envia para Firestore se conectado
-        if db:
-            db.collection("leituras").add({
-                "temperatura": data.temperatura,
-                "umidade": data.umidade,
-                "distancia": data.distancia,
-                "acao_ventoinha": data.acao_ventoinha,
-                "timestamp": datetime.now().isoformat()
-            })
 
         return {
             "status": "sucesso",
