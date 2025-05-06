@@ -6,3 +6,4 @@ jinja2
 python-multipart
 aiofiles
 google-cloud-firestore
+firebase-admin>=6.0.0

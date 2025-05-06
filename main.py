@@ -2,12 +2,32 @@ from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 from routes.sensor_routes import router as sensor_router
 
+# Inicializa o Firebase antes de criar o app FastAPI
+try:
+    import firebase_config
+    print("Firebase inicializado com sucesso!")
+except Exception as e:
+    print(f"Erro ao inicializar Firebase: {str(e)}")
+    raise
 
-app = FastAPI()
+# Cria a aplicação FastAPI
+app = FastAPI(
+    title="H2O Control API",
+    description="API para monitoramento de sensores",
+    version="1.0.0"
+)
+
+# Configura templates Jinja2
 templates = Jinja2Templates(directory="templates")
 
-# Importa as configurações do Firebase (para garantir que seja inicializado)
-import firebase_config
+# Inclui as rotas com prefixo e tags para documentação
+app.include_router(
+    sensor_router,
+    prefix="/api/v1",
+    tags=["Sensores"]
+)
 
-# Incluindo as rotas
-app.include_router(sensor_router)
+# Adiciona rota de health check
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "firebase": "connected"}
