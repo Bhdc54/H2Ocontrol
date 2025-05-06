@@ -9,7 +9,7 @@ from google.cloud import firestore
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
-db = firestore.Client()
+from firebase_config import db
 
 dados_sensores: List[SensorData] = []
 

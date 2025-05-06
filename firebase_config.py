@@ -1,8 +1,9 @@
-import os
-from google.cloud import firestore
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-# Autenticar com as credenciais
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "firebase_config.json"
+# Inicializa o Firebase
+cred = credentials.Certificate("firebase_config.json")
+firebase_admin.initialize_app(cred)
 
-# Inicializar cliente Firestore
-db = firestore.Client()
+# Cria o cliente Firestore
+db = firestore.client()
