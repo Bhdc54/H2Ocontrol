@@ -5,9 +5,11 @@ from models.sensor_models import SensorData, VentoinhaState
 from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estado
 from datetime import datetime
 from typing import List
+from google.cloud import firestore
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+db = firestore.Client()
 
 dados_sensores: List[SensorData] = []
 
@@ -19,13 +21,24 @@ async def home(request: Request):
 async def receber_dados(data: SensorData):
     try:
         dados_sensores.append(data)
-
         print(f"📡 Dados recebidos - Temperatura: {data.temperatura}, Distância: {data.distancia}")
 
+        # 1. Atualizar ventoinha
         if data.acao_ventoinha == "ligar":
             set_ventoinha_estado("ligado")
         elif data.acao_ventoinha == "desligar":
             set_ventoinha_estado("desligado")
+
+        # 2. Salvar no Firestore
+        doc_ref = db.collection("sensores").document("sensor1").collection("leituras").document()
+        doc_ref.set({
+            "temperatura": data.temperatura,
+            "nivelAgua": data.distancia,  # mapeando distancia para nivelAgua
+            "status": data.status,
+            "timeStamp": datetime.now().strftime("%d de %B de %Y às %H:%M:%S UTC-4"),
+            "usuario": data.usuario,
+            "aquarioID": data.aquarioID
+        })
 
         return {
             "status": "sucesso",
