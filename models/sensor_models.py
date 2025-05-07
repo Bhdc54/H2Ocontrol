@@ -5,7 +5,7 @@ class SensorData(BaseModel):
     temperatura: float
     umidade: float
     distancia: float
+    status: bool  # ✅ Adicione esta linha
     acao_ventoinha: Optional[str] = None
-
-class VentoinhaState(BaseModel):
-    estado: str  # "ligado" ou "desligado"
+    usuario: Optional[str] = None
+    aquarioID: Optional[str] = None
