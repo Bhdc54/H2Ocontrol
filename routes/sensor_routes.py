@@ -6,6 +6,7 @@ from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estad
 from datetime import datetime
 from typing import List
 from firebase_config import get_firestore_client
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -19,27 +20,21 @@ async def home(request: Request):
 @router.post("/sensores")
 async def receber_dados(data: SensorData):
     try:
-        db = get_firestore_client()  # ✅ Garantia de acesso seguro ao Firestore
-        dados_sensores.append(data)
+        db = get_firestore_client()
 
-        print(f"📡 Dados recebidos - Temperatura: {data.temperatura}, Distância: {data.distancia}")
+        # Fuso horário de Cuiabá (UTC-4)
+        fuso_mt = timezone(timedelta(hours=-4))
+        agora = datetime.now(fuso_mt)
 
-        if data.acao_ventoinha == "ligar":
-            set_ventoinha_estado("ligado")
-        elif data.acao_ventoinha == "desligar":
-            set_ventoinha_estado("desligado")
-
-        #
-       #  Salvar somente temperatura e distancia em sensores/sensor1
         db.collection("sensores").document("sensor1").set({
             "temperatura": data.temperatura,
-            "distancia": data.distancia
+            "distancia": data.distancia,
+            "data": agora.strftime("%d/%m/%Y %H:%M:%S")
         }, merge=True)
 
         return {
             "status": "sucesso",
-            "timestamp": datetime.now().isoformat(),
-            "ventoinha_estado_atual": get_ventoinha_estado()
+            "timestamp": agora.isoformat()
         }
 
     except Exception as e:
