@@ -21,11 +21,8 @@ app = FastAPI(
 templates = Jinja2Templates(directory="templates")
 
 # Inclui as rotas com prefixo e tags para documentação
-app.include_router(
-    sensor_router,
-    prefix="/api/v1",
-    tags=["Sensores"]
-)
+app.include_router(sensor_router)
+
 
 # Adiciona rota de health check
 @app.get("/health")
