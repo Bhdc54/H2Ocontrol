@@ -5,11 +5,10 @@ from models.sensor_models import SensorData, VentoinhaState
 from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estado
 from datetime import datetime
 from typing import List
-from google.cloud import firestore
+from firebase_config import get_firestore_client
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
-from firebase_config import db
 
 dados_sensores: List[SensorData] = []
 
@@ -20,20 +19,20 @@ async def home(request: Request):
 @router.post("/sensores")
 async def receber_dados(data: SensorData):
     try:
+        db = get_firestore_client()  # ✅ Garantia de acesso seguro ao Firestore
         dados_sensores.append(data)
+
         print(f"📡 Dados recebidos - Temperatura: {data.temperatura}, Distância: {data.distancia}")
 
-        # 1. Atualizar ventoinha
         if data.acao_ventoinha == "ligar":
             set_ventoinha_estado("ligado")
         elif data.acao_ventoinha == "desligar":
             set_ventoinha_estado("desligado")
 
-        # 2. Salvar no Firestore
-        doc_ref = db.collection("sensores").document("sensor1").collection("leituras").document()
-        doc_ref.set({
+        # Salva dados no Firestore
+        db.collection("sensores").document("sensor1").collection("leituras").add({
             "temperatura": data.temperatura,
-            "nivelAgua": data.distancia,  # mapeando distancia para nivelAgua
+            "nivelAgua": data.distancia,
             "status": data.status,
             "timeStamp": datetime.now().strftime("%d de %B de %Y às %H:%M:%S UTC-4"),
             "usuario": data.usuario,
@@ -47,6 +46,8 @@ async def receber_dados(data: SensorData):
         }
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {
             "status": "erro",
             "detalhe": str(e)
@@ -69,4 +70,4 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
         set_ventoinha_estado(estado.estado)
         return {"mensagem": f"Ventoinha agora está {get_ventoinha_estado()}"}
     else:
-        return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
+        return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
