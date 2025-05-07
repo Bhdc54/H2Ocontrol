@@ -29,15 +29,12 @@ async def receber_dados(data: SensorData):
         elif data.acao_ventoinha == "desligar":
             set_ventoinha_estado("desligado")
 
-        # Salva dados no Firestore
-        db.collection("sensores").document("sensor1").collection("leituras").add({
+        #
+       #  Salvar somente temperatura e distancia em sensores/sensor1
+        db.collection("sensores").document("sensor1").set({
             "temperatura": data.temperatura,
-            "nivelAgua": data.distancia,
-            "status": data.status,
-            "timeStamp": datetime.now().strftime("%d de %B de %Y às %H:%M:%S UTC-4"),
-            "usuario": data.usuario,
-            "aquarioID": data.aquarioID
-        })
+            "distancia": data.distancia
+        }, merge=True)
 
         return {
             "status": "sucesso",
