@@ -4,7 +4,6 @@ from typing import Optional
 class SensorData(BaseModel):
     sensorID: str
     temperatura: float
-    umidade: float
     distancia: float
     acao_ventoinha: Optional[str] = None
     
