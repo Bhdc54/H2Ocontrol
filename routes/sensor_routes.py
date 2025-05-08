@@ -25,12 +25,20 @@ async def receber_dados(data: SensorData):
         fuso_mt = timezone(timedelta(hours=-4))
         agora = datetime.now(fuso_mt)
 
+        
         # Salva leitura no Firestore
         db.collection("sensores").document(data.sensorID).set({
             "temperatura": data.temperatura,
             "distancia": data.distancia,
             "data": agora.strftime("%d/%m/%Y %H:%M:%S")
         }, merge=True)
+
+        db.collection("sensores").document(data.sensorID).collection("leituras").add({
+            "temperatura": data.temperatura,
+            "distancia": data.distancia,
+            "data": agora.strftime("%d/%m/%Y %H:%M:%S"),
+            
+        })
 
         # Busca aquário com este sensorID
         aquarios_ref = db.collection("aquarios").where("sensorID", "==", data.sensorID).stream()
