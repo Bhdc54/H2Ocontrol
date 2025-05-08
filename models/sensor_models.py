@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 class SensorData(BaseModel):
+    sensorID: str
     temperatura: float
     umidade: float
     distancia: float
