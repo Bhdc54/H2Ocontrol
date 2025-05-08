@@ -38,8 +38,8 @@ async def receber_dados(data: SensorData):
         })
 
         # 🔍 Busca o aquário vinculado a este sensor
-        aquarios_ref = db.collection("aquarios").where("sensorID", "==", data.sensorID).stream()
-        aquario_doc = next(aquarios_ref, None)
+        aquarios_ref = list(db.collection("aquarios").where("sensorID", "==", data.sensorID).stream())
+        aquario_doc = aquarios_ref[0] if aquarios_ref else None
 
         if aquario_doc and aquario_doc.exists:
             aquario_data = aquario_doc.to_dict()
@@ -65,6 +65,7 @@ async def receber_dados(data: SensorData):
             "status": "erro",
             "detalhe": str(e)
         }
+
 
 @router.get("/sensores")
 async def listar_dados():
