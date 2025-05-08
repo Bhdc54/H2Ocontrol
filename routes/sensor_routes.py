@@ -26,15 +26,32 @@ async def receber_dados(data: SensorData):
         fuso_mt = timezone(timedelta(hours=-4))
         agora = datetime.now(fuso_mt)
 
-        db.collection("sensores").document("sensor1").set({
+        # Salva leitura no Firestore
+        db.collection("sensores").document(data.sensorID).set({
             "temperatura": data.temperatura,
             "distancia": data.distancia,
             "data": agora.strftime("%d/%m/%Y %H:%M:%S")
         }, merge=True)
 
+        # Busca aquário com este sensorID
+        aquarios_ref = db.collection("aquarios").where("sensorID", "==", data.sensorID).stream()
+        aquario_doc = next(aquarios_ref, None)
+
+        if aquario_doc and aquario_doc.exists:
+            aquario_data = aquario_doc.to_dict()
+            temp_max = aquario_data.get("tempMaxima")
+            temp_min = aquario_data.get("tempMinima")
+
+            if temp_max is not None and temp_min is not None:
+                if data.temperatura >= temp_max:
+                    set_ventoinha_estado("ligado")
+                elif data.temperatura <= temp_min:
+                    set_ventoinha_estado("desligado")
+
         return {
             "status": "sucesso",
-            "timestamp": agora.isoformat()
+            "timestamp": agora.isoformat(),
+            "estado_ventoinha": get_ventoinha_estado()
         }
 
     except Exception as e:
@@ -44,7 +61,6 @@ async def receber_dados(data: SensorData):
             "status": "erro",
             "detalhe": str(e)
         }
-
 @router.get("/sensores")
 async def listar_dados():
     return {
