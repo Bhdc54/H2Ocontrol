@@ -3,10 +3,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from models.sensor_models import SensorData, VentoinhaState
 from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estado
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List
 from firebase_config import get_firestore_client
-from datetime import datetime, timezone, timedelta
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -40,12 +39,11 @@ async def receber_dados(data: SensorData):
         if aquario_doc and aquario_doc.exists:
             aquario_data = aquario_doc.to_dict()
             temp_max = aquario_data.get("tempMaxima")
-            temp_min = aquario_data.get("tempMinima")
 
-            if temp_max is not None and temp_min is not None:
+            if temp_max is not None:
                 if data.temperatura >= temp_max:
                     set_ventoinha_estado("ligado")
-                elif data.temperatura <= temp_min:
+                else:
                     set_ventoinha_estado("desligado")
 
         return {
@@ -61,6 +59,7 @@ async def receber_dados(data: SensorData):
             "status": "erro",
             "detalhe": str(e)
         }
+
 @router.get("/sensores")
 async def listar_dados():
     return {
