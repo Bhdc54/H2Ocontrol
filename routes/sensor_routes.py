@@ -46,10 +46,13 @@ async def receber_dados(data: SensorData):
             temp_max = aquario_data.get("tempMaxima")
             temp_min = aquario_data.get("tempMinima")
 
-            # 🚨 Verifica limites de temperatura
-            if temp_max is not None and data.temperatura >= temp_max:
+            estado_atual = get_ventoinha_estado()
+
+        # Lógica de histerese simples
+        if temp_max is not None:
+            if data.temperatura >= temp_max and estado_atual == "desligado":
                 set_ventoinha_estado("ligado")
-            elif temp_min is not None and data.temperatura <= temp_min:
+            elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
                 set_ventoinha_estado("desligado")
 
         return {
@@ -65,7 +68,6 @@ async def receber_dados(data: SensorData):
             "status": "erro",
             "detalhe": str(e)
         }
-
 
 @router.get("/sensores")
 async def listar_dados():
