@@ -10,8 +10,6 @@ from firebase_config import get_firestore_client
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-dados_sensores: List[SensorData] = []
-
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -21,38 +19,38 @@ async def receber_dados(data: SensorData):
     try:
         db = get_firestore_client()
 
-        # Fuso horário de Cuiabá (UTC-4)
+        # Fuso horário UTC-4 (Cuiabá)
         fuso_mt = timezone(timedelta(hours=-4))
         agora = datetime.now(fuso_mt)
 
-        
-        # Salva leitura no Firestore
+        # 🔁 Atualiza dados atuais do sensor
         db.collection("sensores").document(data.sensorID).set({
             "temperatura": data.temperatura,
             "distancia": data.distancia,
             "data": agora.strftime("%d/%m/%Y %H:%M:%S")
         }, merge=True)
 
+        # 📌 Salva leitura no histórico
         db.collection("sensores").document(data.sensorID).collection("leituras").add({
             "temperatura": data.temperatura,
             "distancia": data.distancia,
-            "data": agora.strftime("%d/%m/%Y %H:%M:%S"),
-            
+            "data": agora.strftime("%d/%m/%Y %H:%M:%S")
         })
 
-        # Busca aquário com este sensorID
+        # 🔍 Busca o aquário vinculado a este sensor
         aquarios_ref = db.collection("aquarios").where("sensorID", "==", data.sensorID).stream()
         aquario_doc = next(aquarios_ref, None)
 
         if aquario_doc and aquario_doc.exists:
             aquario_data = aquario_doc.to_dict()
             temp_max = aquario_data.get("tempMaxima")
+            temp_min = aquario_data.get("tempMinima")
 
-            if temp_max is not None:
-                if data.temperatura >= temp_max:
-                    set_ventoinha_estado("ligado")
-                else:
-                    set_ventoinha_estado("desligado")
+            # 🚨 Verifica limites de temperatura
+            if temp_max is not None and data.temperatura >= temp_max:
+                set_ventoinha_estado("ligado")
+            elif temp_min is not None and data.temperatura <= temp_min:
+                set_ventoinha_estado("desligado")
 
         return {
             "status": "sucesso",
@@ -70,10 +68,10 @@ async def receber_dados(data: SensorData):
 
 @router.get("/sensores")
 async def listar_dados():
-    return {
-        "dados": dados_sensores,
-        "total": len(dados_sensores)
-    }
+    db = get_firestore_client()
+    sensores_ref = db.collection("sensores").stream()
+    sensores = {doc.id: doc.to_dict() for doc in sensores_ref}
+    return {"sensores": sensores}
 
 @router.get("/ventoinha")
 async def obter_estado_ventoinha():
