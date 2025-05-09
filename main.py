@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 from routes.sensor_routes import router as sensor_router
-from services.notificacao_fcm import enviar_notificacao
+
 
 # Inicializa o Firebase antes de criar o app FastAPI
 try:

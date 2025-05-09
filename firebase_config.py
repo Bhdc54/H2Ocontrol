@@ -58,8 +58,3 @@ def get_firestore_client():
     if db is None:
         raise RuntimeError("Firestore não foi inicializado corretamente")
     return db
-#token
-
-load_dotenv()
-
-FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
