@@ -4,7 +4,7 @@ import logging
 import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
-
+from dotenv import load_dotenv
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,3 +58,8 @@ def get_firestore_client():
     if db is None:
         raise RuntimeError("Firestore não foi inicializado corretamente")
     return db
+#token
+
+load_dotenv()
+
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
