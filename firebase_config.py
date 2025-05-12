@@ -5,6 +5,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
 from dotenv import load_dotenv
+from firebase_admin import messaging
+
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,3 +60,22 @@ def get_firestore_client():
     if db is None:
         raise RuntimeError("Firestore não foi inicializado corretamente")
     return db
+
+def send_push_notification(token: str, title: str, body: str):
+    # Cria a mensagem com título e corpo
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body
+        ),
+        token=token
+    )
+
+    # Envia a notificação
+    try:
+        response = messaging.send(message)
+        print("Notificação enviada com sucesso:", response)
+        return response
+    except Exception as e:
+        print("Erro ao enviar notificação:", str(e))
+        raise

@@ -1,3 +1,2 @@
 firebase_config.json
 *.json  # (se quiser ignorar todos os .json sensíveis)
-.env
