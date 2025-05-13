@@ -12,5 +12,6 @@ def enviar_notificacao_expo(token: str, titulo: str, corpo: str):
         'Content-Type': 'application/json'
     }
 
+    print("➡️ Enviando notificação para:", token)
     response = requests.post(url, json=payload, headers=headers)
-    print("Resposta do envio da notificação:", response.json())
+    print("📨 Resposta da API Expo:", response.status_code, response.text)

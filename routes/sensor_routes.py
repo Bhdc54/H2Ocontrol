@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List
 from firebase_config import get_firestore_client
 
+
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
@@ -56,17 +57,20 @@ async def receber_dados(data: SensorData):
                     set_ventoinha_estado("ligado")
                 elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
                     set_ventoinha_estado("desligado")
-
-            expo_token = aquario_data.get("expoToken")
+#enviar notificação
+            expo_token = aquario_data.get("pushToken")  
             if expo_token:
-                enviar_notificacao_expo(
-                    expo_token,
-                    titulo="🚨 Alerta de Temperatura!",
-                    corpo=f"A temperatura do aquário {data.sensorID} está em {data.temperatura:.1f}°C"
-            )
-        elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
-            set_ventoinha_estado("desligado")
-    
+                try:
+                    print("📣 Vai enviar notificação para token:", expo_token)
+                    enviar_notificacao_expo(
+                        expo_token,
+                        titulo="🚨 Alerta de Temperatura!",
+                        corpo=f"A temperatura do aquário {data.sensorID} está em {data.temperatura:.1f}°C"
+        )
+                except Exception as e:
+                    print("❌ Erro ao enviar notificação:", str(e))
+
+           
         return {
             "status": "sucesso",
             "timestamp": agora.isoformat(),
