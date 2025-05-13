@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from models.sensor_models import SensorData, VentoinhaState
 from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estado
+from services.notificacao_service import enviar_notificacao_expo  # ✅ IMPORTADO
 from datetime import datetime, timezone, timedelta
 from typing import List
 from firebase_config import get_firestore_client
@@ -45,15 +46,28 @@ async def receber_dados(data: SensorData):
             aquario_data = aquario_doc.to_dict()
             temp_max = aquario_data.get("tempMaxima")
             temp_min = aquario_data.get("tempMinima")
+            usuario_id = aquario_data.get("usuarioID")
 
             estado_atual = get_ventoinha_estado()
 
-        # Lógica de histerese simples
-        if temp_max is not None:
-            if data.temperatura >= temp_max and estado_atual == "desligado":
-                set_ventoinha_estado("ligado")
-            elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
-                set_ventoinha_estado("desligado")
+            # ⚙️ Lógica de histerese simples
+            if temp_max is not None:
+                if data.temperatura >= temp_max and estado_atual == "desligado":
+                    set_ventoinha_estado("ligado")
+                elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
+                    set_ventoinha_estado("desligado")
+
+            # ✅ Enviar notificação se temperatura estiver fora da faixa
+            if usuario_id and (temp_max is not None and data.temperatura >= temp_max
+                               or temp_min is not None and data.temperatura <= temp_min):
+                usuario_doc = db.collection("usuarios").document(usuario_id).get()
+                if usuario_doc.exists:
+                    usuario_data = usuario_doc.to_dict()
+                    push_token = usuario_data.get("pushToken")
+                    if push_token:
+                        titulo = "Alerta de Temperatura!"
+                        mensagem = f"A temperatura está em {data.temperatura}°C"
+                        await enviar_notificacao_expo(push_token, titulo, mensagem)
 
         return {
             "status": "sucesso",
