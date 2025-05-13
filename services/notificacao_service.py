@@ -1,17 +1,17 @@
 import requests
 
-def enviar_notificacao_expo(token: str, titulo: str, corpo: str):
+def enviar_notificacao_expo(expo_token: str, titulo: str, mensagem: str):
     url = 'https://exp.host/--/api/v2/push/send'
     payload = {
-        'to': token,
+        'to': expo_token,
         'title': titulo,
-        'body': corpo,
+        'body': mensagem,
         'sound': 'default'
     }
     headers = {
         'Content-Type': 'application/json'
     }
 
-    print("➡️ Enviando notificação para:", token)
     response = requests.post(url, json=payload, headers=headers)
-    print("📨 Resposta da API Expo:", response.status_code, response.text)
+    print('Resposta:', response.text)
+    return response.json()

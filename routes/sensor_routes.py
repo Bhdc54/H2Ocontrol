@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from models.sensor_models import SensorData, VentoinhaState
 from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estado
-from services.notificacao_service import enviar_notificacao_expo  # ✅ IMPORTADO
+from services.notificacao_service import enviar_notificacao_expo  
 from datetime import datetime, timezone, timedelta
 from typing import List
 from firebase_config import get_firestore_client
@@ -57,7 +57,8 @@ async def receber_dados(data: SensorData):
                     set_ventoinha_estado("ligado")
                 elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
                     set_ventoinha_estado("desligado")
-#enviar notificação
+
+            # Enviar notificação caso a temperatura ultrapasse o limite
             expo_token = aquario_data.get("pushToken")  
             if expo_token:
                 try:
@@ -66,11 +67,21 @@ async def receber_dados(data: SensorData):
                         expo_token,
                         titulo="🚨 Alerta de Temperatura!",
                         corpo=f"A temperatura do aquário {data.sensorID} está em {data.temperatura:.1f}°C"
-        )
+                    )
+
+                    # Verifica se a temperatura está alta e envia outra notificação
+                    if data.temperatura > 30:  # Defina o limite de temperatura conforme necessário
+                        expo_token_usuario = aquario_data.get("pushTokenUsuario")  # Token do usuário
+                        if expo_token_usuario:
+                            enviar_notificacao_expo(
+                                expo_token=expo_token_usuario,
+                                titulo="⚠️ Temperatura Alta",
+                                mensagem=f"A temperatura do seu aquário está em {data.temperatura:.1f}°C!"
+                            )
+
                 except Exception as e:
                     print("❌ Erro ao enviar notificação:", str(e))
 
-           
         return {
             "status": "sucesso",
             "timestamp": agora.isoformat(),
