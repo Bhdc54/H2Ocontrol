@@ -57,18 +57,16 @@ async def receber_dados(data: SensorData):
                 elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
                     set_ventoinha_estado("desligado")
 
-            # ✅ Enviar notificação se temperatura estiver fora da faixa
-            if usuario_id and (temp_max is not None and data.temperatura >= temp_max
-                               or temp_min is not None and data.temperatura <= temp_min):
-                usuario_doc = db.collection("usuarios").document(usuario_id).get()
-                if usuario_doc.exists:
-                    usuario_data = usuario_doc.to_dict()
-                    push_token = usuario_data.get("pushToken")
-                    if push_token:
-                        titulo = "Alerta de Temperatura!"
-                        mensagem = f"A temperatura está em {data.temperatura}°C"
-                        await enviar_notificacao_expo(push_token, titulo, mensagem)
-
+            expo_token = aquario_data.get("expoToken")
+            if expo_token:
+                enviar_notificacao_expo(
+                    expo_token,
+                    titulo="🚨 Alerta de Temperatura!",
+                    corpo=f"A temperatura do aquário {data.sensorID} está em {data.temperatura:.1f}°C"
+            )
+        elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
+            set_ventoinha_estado("desligado")
+    
         return {
             "status": "sucesso",
             "timestamp": agora.isoformat(),

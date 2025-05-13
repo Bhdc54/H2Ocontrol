@@ -1,19 +1,16 @@
-import httpx
+import requests
 
-async def enviar_notificacao_expo(push_token: str, titulo: str, mensagem: str):
-    url = "https://exp.host/--/api/v2/push/send"
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-
+def enviar_notificacao_expo(token: str, titulo: str, corpo: str):
+    url = 'https://exp.host/--/api/v2/push/send'
     payload = {
-        "to": push_token,
-        "sound": "default",
-        "title": titulo,
-        "body": mensagem
+        'to': token,
+        'title': titulo,
+        'body': corpo,
+        'sound': 'default'
+    }
+    headers = {
+        'Content-Type': 'application/json'
     }
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, headers=headers)
-        return response.json()
+    response = requests.post(url, json=payload, headers=headers)
+    print("Resposta do envio da notificação:", response.json())
