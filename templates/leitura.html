@@ -2,21 +2,10 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gráfico de Leituras</title>
+    <title>Leitura do Sensor</title>
 </head>
 <body>
-    <h1>Leituras dos Sensores</h1>
-
-    {% if grafico_base64 %}
-        <img src="data:image/png;base64,{{ grafico_base64 }}" alt="Gráfico">
-
-        <h2>📊 Estatísticas</h2>
-        <ul>
-            <li><strong>Temperatura:</strong> média = {{ temp_media }}°C | mín = {{ temp_min }}°C | máx = {{ temp_max }}°C</li>
-            <li><strong>Distância:</strong> média = {{ dist_media }}cm | mín = {{ dist_min }}cm | máx = {{ dist_max }}cm</li>
-        </ul>
-    {% else %}
-        <p>{{ mensagem }}</p>
-    {% endif %}
+    <h1>Gráfico de Leituras</h1>
+    <img src="data:image/png;base64,{{ grafico_base64 }}" alt="Gráfico das Leituras">
 </body>
 </html>

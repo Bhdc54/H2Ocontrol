@@ -1,76 +1,44 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from firebase_admin import firestore
 import matplotlib.pyplot as plt
 import io
 import base64
-import pandas as pd
+from datetime import datetime
 
+# Diretório onde estão os templates HTML
+templates = Jinja2Templates(directory="templates")
+
+# Roteador da leitura
 router = APIRouter()
-templates = Jinja2Templates(directory="frontend/templates")
 
-@router.get("/leituras", response_class=HTMLResponse)
-async def exibir_leituras(request: Request):
-    db = firestore.client()
-    leituras_ref = db.collection("leituras")
-    docs = leituras_ref.stream()
+@router.get("/leitura", response_class=HTMLResponse)
+async def renderizar_grafico(request: Request):
+    # Simulação de dados (substitua isso por dados do Firebase ou sensores)
+    datas = [datetime(2024, 1, i + 1) for i in range(7)]
+    valores = [10, 20, 15, 25, 30, 18, 22]
 
-    dados = []
-    for doc in docs:
-        leitura = doc.to_dict()
-        leitura["id"] = doc.id
-        dados.append(leitura)
+    # Criação do gráfico com matplotlib
+    plt.figure(figsize=(10, 4))
+    plt.plot(datas, valores, marker='o', linestyle='-', color='blue')
+    plt.title("Leituras do Sensor")
+    plt.xlabel("Data")
+    plt.ylabel("Valor")
+    plt.grid(True)
+    plt.tight_layout()
 
-    df = pd.DataFrame(dados)
+    # Salvar gráfico em memória e codificar para base64
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    imagem_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
 
-    if not df.empty:
-        # Convertendo timestamps, se necessário
-        if 'timestamp' in df.columns:
-            df["timestamp"] = pd.to_datetime(df["timestamp"], errors='coerce')
-            df = df.sort_values("timestamp")
+    # Limpar o gráfico atual para evitar sobreposição futura
+    plt.clf()
 
-        # Cálculo de estatísticas
-        temp_media = df["temperatura"].mean()
-        temp_max = df["temperatura"].max()
-        temp_min = df["temperatura"].min()
-
-        umid_media = df["umidade"].mean()
-        umid_max = df["umidade"].max()
-        umid_min = df["umidade"].min()
-
-        # Geração do gráfico
-        plt.figure(figsize=(10, 5))
-        plt.plot(df["timestamp"], df["temperatura"], label="Temperatura (°C)", color="red", marker='o')
-        plt.plot(df["timestamp"], df["umidade"], label="Umidade (%)", color="blue", marker='x')
-        plt.xlabel("Data e Hora")
-        plt.ylabel("Valores")
-        plt.title("Temperatura e Umidade ao longo do tempo")
-        plt.legend()
-        plt.grid(True)
-
-        # Converter o gráfico para base64
-        buffer = io.BytesIO()
-        plt.tight_layout()
-        plt.savefig(buffer, format="png")
-        buffer.seek(0)
-        image_base64 = base64.b64encode(buffer.read()).decode("utf-8")
-        buffer.close()
-
-        return templates.TemplateResponse("leitura.html", {
-            "request": request,
-            "grafico_base64": image_base64,
-            "temp_media": f"{temp_media:.2f}",
-            "temp_max": f"{temp_max:.2f}",
-            "temp_min": f"{temp_min:.2f}",
-            "umid_media": f"{umid_media:.2f}",
-            "umid_max": f"{umid_max:.2f}",
-            "umid_min": f"{umid_min:.2f}"
-        })
-
-    else:
-        return templates.TemplateResponse("leitura.html", {
-            "request": request,
-            "grafico_base64": "",
-            "mensagem": "Sem dados disponíveis."
-        })
+    # Renderizar template com o gráfico
+    return templates.TemplateResponse("leitura.html", {
+        "request": request,
+        "grafico_base64": imagem_base64
+    })
