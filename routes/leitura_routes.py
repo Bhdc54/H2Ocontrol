@@ -1,93 +1,76 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from firebase_config import get_firestore_client
-
+from firebase_admin import firestore
 import matplotlib.pyplot as plt
-import pandas as pd
-import base64
 import io
+import base64
+import pandas as pd
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="frontend/templates")
 
-@router.get("/leitura", response_class=HTMLResponse)
-async def exibir_leitura(request: Request):
-    try:
-        db = get_firestore_client()
+@router.get("/leituras", response_class=HTMLResponse)
+async def exibir_leituras(request: Request):
+    db = firestore.client()
+    leituras_ref = db.collection("leituras")
+    docs = leituras_ref.stream()
 
-        sensores_ref = db.collection("sensores").stream()
-        sensores = [doc.id for doc in sensores_ref]
+    dados = []
+    for doc in docs:
+        leitura = doc.to_dict()
+        leitura["id"] = doc.id
+        dados.append(leitura)
 
-        dados = []
+    df = pd.DataFrame(dados)
 
-        for sensor_id in sensores:
-            leituras_ref = db.collection("sensores").document(sensor_id).collection("leituras").stream()
-            for leitura in leituras_ref:
-                item = leitura.to_dict()
-                dados.append({
-                    "sensorID": sensor_id,
-                    "temperatura": item.get("temperatura"),
-                    "distancia": item.get("distancia"),
-                    "data": item.get("data")
-                })
+    if not df.empty:
+        # Convertendo timestamps, se necessário
+        if 'timestamp' in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], errors='coerce')
+            df = df.sort_values("timestamp")
 
-        df = pd.DataFrame(dados)
+        # Cálculo de estatísticas
+        temp_media = df["temperatura"].mean()
+        temp_max = df["temperatura"].max()
+        temp_min = df["temperatura"].min()
 
-        if df.empty:
-           # Estatísticas
-            temp_media = df["temperatura"].mean()
-            temp_min = df["temperatura"].min()
-            temp_max = df["temperatura"].max()
+        umid_media = df["umidade"].mean()
+        umid_max = df["umidade"].max()
+        umid_min = df["umidade"].min()
 
-            dist_media = df["distancia"].mean()
-            dist_min = df["distancia"].min()
-            dist_max = df["distancia"].max()
-
-            return templates.TemplateResponse("leitura.html", {
-                "request": request,
-                "grafico_base64": grafico_base64,
-                "temp_media": round(temp_media, 2),
-                "temp_min": temp_min,
-                "temp_max": temp_max,
-                "dist_media": round(dist_media, 2),
-                "dist_min": dist_min,
-                "dist_max": dist_max
-})
-
-        try:
-            df["data"] = pd.to_datetime(df["data"], format="%d/%m/%Y %H:%M:%S")
-            df.sort_values("data", inplace=True)
-        except:
-            pass
-
-        plt.figure(figsize=(10, 4))
-        plt.plot(df["temperatura"], label="Temperatura (°C)", color="red")
-        plt.plot(df["distancia"], label="Distância (cm)", color="blue")
-        plt.title("Gráfico de Leituras")
-        plt.xlabel("Amostras")
+        # Geração do gráfico
+        plt.figure(figsize=(10, 5))
+        plt.plot(df["timestamp"], df["temperatura"], label="Temperatura (°C)", color="red", marker='o')
+        plt.plot(df["timestamp"], df["umidade"], label="Umidade (%)", color="blue", marker='x')
+        plt.xlabel("Data e Hora")
         plt.ylabel("Valores")
+        plt.title("Temperatura e Umidade ao longo do tempo")
         plt.legend()
         plt.grid(True)
 
+        # Converter o gráfico para base64
         buffer = io.BytesIO()
         plt.tight_layout()
         plt.savefig(buffer, format="png")
-        plt.close()
         buffer.seek(0)
-
-        grafico_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+        image_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+        buffer.close()
 
         return templates.TemplateResponse("leitura.html", {
             "request": request,
-            "grafico_base64": grafico_base64
+            "grafico_base64": image_base64,
+            "temp_media": f"{temp_media:.2f}",
+            "temp_max": f"{temp_max:.2f}",
+            "temp_min": f"{temp_min:.2f}",
+            "umid_media": f"{umid_media:.2f}",
+            "umid_max": f"{umid_max:.2f}",
+            "umid_min": f"{umid_min:.2f}"
         })
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
+    else:
         return templates.TemplateResponse("leitura.html", {
             "request": request,
             "grafico_base64": "",
-            "mensagem": f"Erro: {str(e)}"
+            "mensagem": "Sem dados disponíveis."
         })
