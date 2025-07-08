@@ -34,7 +34,7 @@ def enviar_notificacao_expo(expo_token: str, titulo: str, mensagem: str):
 
 def ativar_ventoinha():
     try:
-        response = requests.get("https://sua-api-ventoinha.railway.app/ligar")  # 🔁 Substituir pela real
+        response = requests.get("https://h2ocontrol.up.railway.app/ligar")  # 🔁 Substituir pela real
         print("🌬 Ventoinha ativada:", response.status_code)
     except Exception as e:
         print("❌ Erro ao ativar ventoinha:", e)
