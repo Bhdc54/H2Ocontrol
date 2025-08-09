@@ -13,16 +13,31 @@
             padding: 20px;
         }
         h1 { color: #0066cc; }
-        .botoes { display: flex; gap: 20px; justify-content: center; margin: 20px 0; }
+        .botoes {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 20px 0;
+        }
         .botoes button {
-            width: 180px; padding: 10px; font-size: 1em;
-            background-color: #007bff; color: white;
-            border: none; border-radius: 8px; cursor: pointer;
+            width: 180px;
+            padding: 10px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
             transition: background-color 0.3s;
         }
         .botoes button:hover { background-color: #0056b3; }
         h2 { margin-top: 30px; }
-        ul#dados { list-style: none; padding: 0; max-width: 500px; margin: auto; }
+        ul#dados {
+            list-style: none;
+            padding: 0;
+            max-width: 500px;
+            margin: auto;
+        }
         ul#dados li {
             background-color: #e6f0ff;
             border: 1px solid #cce0ff;
@@ -32,34 +47,50 @@
         }
         #grafico { max-width: 900px; margin: auto; }
     </style>
+
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
     <script>
         async function atualizarEstado() {
-            const res = await fetch("/ventoinha");
-            const data = await res.json();
-            document.getElementById("estado").innerText = data.estado;
+            try {
+                const res = await fetch("/ventoinha");
+                const data = await res.json();
+                document.getElementById("estado").innerText = data.estado || "Desconhecido";
+            } catch (err) {
+                console.error("Erro ao atualizar estado:", err);
+            }
         }
 
         async function alterarEstado(novoEstado) {
-            await fetch("/ventoinha", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ estado: novoEstado })
-            });
-            atualizarEstado();
+            try {
+                await fetch("/ventoinha", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ estado: novoEstado })
+                });
+                atualizarEstado();
+            } catch (err) {
+                console.error("Erro ao alterar estado:", err);
+            }
         }
 
         async function carregarDadosSensores() {
-            const res = await fetch("/sensores");
-            const dados = await res.json();
-            const lista = document.getElementById("dados");
-            lista.innerHTML = "";
-            dados.dados.slice(0, 10).forEach(dado => {
-                const item = document.createElement("li");
-                item.textContent = `📅 ${dado.data} | 🌡️ ${dado.temperatura}°C | 📏 ${dado.distancia}cm`;
-                lista.appendChild(item);
-            });
-            desenharGrafico(dados.dados.reverse());
+            try {
+                const res = await fetch("/sensores");
+                const dados = await res.json();
+                const lista = document.getElementById("dados");
+                lista.innerHTML = "";
+
+                dados.dados.slice(0, 10).forEach(dado => {
+                    const item = document.createElement("li");
+                    item.textContent = `📅 ${dado.data} | 🌡️ ${dado.temperatura}°C | 📏 ${dado.distancia}cm`;
+                    lista.appendChild(item);
+                });
+
+                desenharGrafico(dados.dados.reverse());
+            } catch (err) {
+                console.error("Erro ao carregar dados:", err);
+            }
         }
 
         function desenharGrafico(dados) {
