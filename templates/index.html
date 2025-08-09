@@ -2,74 +2,37 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Controle da Ventoinha</title>
+    <title>H2OControl - Painel de Controle</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f9ff;
             color: #333;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             text-align: center;
             margin: 0;
             padding: 20px;
         }
-
-        h1 {
-            margin-top: 30px;
-            font-size: 2em;
-            color: #0066cc;
-        }
-
-        p {
-            font-size: 1.2em;
-        }
-
-        .botoes {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin: 20px 0;
-        }
-
+        h1 { color: #0066cc; }
+        .botoes { display: flex; gap: 20px; justify-content: center; margin: 20px 0; }
         .botoes button {
-            width: 180px;
-            padding: 10px 0;
-            font-size: 1em;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
+            width: 180px; padding: 10px; font-size: 1em;
+            background-color: #007bff; color: white;
+            border: none; border-radius: 8px; cursor: pointer;
             transition: background-color 0.3s;
         }
-
-        .botoes button:hover {
-            background-color: #0056b3;
-        }
-
-        h2 {
-            margin-top: 40px;
-            color: #444;
-        }
-
-        ul#dados {
-            list-style: none;
-            padding: 0;
-            max-width: 500px;
-            width: 100%;
-        }
-
+        .botoes button:hover { background-color: #0056b3; }
+        h2 { margin-top: 30px; }
+        ul#dados { list-style: none; padding: 0; max-width: 500px; margin: auto; }
         ul#dados li {
             background-color: #e6f0ff;
             border: 1px solid #cce0ff;
             border-radius: 6px;
             margin: 5px 0;
             padding: 10px;
-            font-size: 0.95em;
         }
+        #grafico { max-width: 900px; margin: auto; }
     </style>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script>
         async function atualizarEstado() {
             const res = await fetch("/ventoinha");
@@ -91,11 +54,37 @@
             const dados = await res.json();
             const lista = document.getElementById("dados");
             lista.innerHTML = "";
-            dados.dados.slice(-10).reverse().forEach(dado => {
+            dados.dados.slice(0, 10).forEach(dado => {
                 const item = document.createElement("li");
-                item.textContent = `🌡️ Temp: ${dado.temperatura}°C | 📏 Distância: ${dado.distancia}cm`;
+                item.textContent = `📅 ${dado.data} | 🌡️ ${dado.temperatura}°C | 📏 ${dado.distancia}cm`;
                 lista.appendChild(item);
             });
+            desenharGrafico(dados.dados.reverse());
+        }
+
+        function desenharGrafico(dados) {
+            const datas = dados.map(d => d.data);
+            const temperaturas = dados.map(d => d.temperatura);
+            const distancias = dados.map(d => d.distancia);
+
+            const trace1 = {
+                x: datas, y: temperaturas,
+                type: 'scatter', mode: 'lines+markers',
+                name: 'Temperatura (°C)', line: { color: 'red' }
+            };
+            const trace2 = {
+                x: datas, y: distancias,
+                type: 'scatter', mode: 'lines+markers',
+                name: 'Distância (cm)', line: { color: 'blue' }
+            };
+
+            const layout = {
+                title: 'Histórico de Leituras',
+                xaxis: { title: 'Data/Hora' },
+                yaxis: { title: 'Valores' }
+            };
+
+            Plotly.newPlot('grafico', [trace1, trace2], layout);
         }
 
         setInterval(() => {
@@ -115,5 +104,8 @@
 
     <h2>📊 Últimos dados recebidos:</h2>
     <ul id="dados"></ul>
+
+    <h2>📈 Gráfico de Leituras:</h2>
+    <div id="grafico"></div>
 </body>
 </html>
