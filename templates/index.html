@@ -45,10 +45,14 @@
             margin: 5px 0;
             padding: 10px;
         }
-        #grafico { max-width: 900px; margin: auto; }
+        #grafico-historico, #grafico-tempo-real {
+            max-width: 900px;
+            margin: auto;
+        }
     </style>
 
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
         async function atualizarEstado() {
@@ -87,13 +91,13 @@
                     lista.appendChild(item);
                 });
 
-                desenharGrafico(dados.dados.reverse());
+                desenharGraficoHistorico(dados.dados.reverse());
             } catch (err) {
                 console.error("Erro ao carregar dados:", err);
             }
         }
 
-        function desenharGrafico(dados) {
+        function desenharGraficoHistorico(dados) {
             const datas = dados.map(d => d.data);
             const temperaturas = dados.map(d => d.temperatura);
             const distancias = dados.map(d => d.distancia);
@@ -115,16 +119,56 @@
                 yaxis: { title: 'Valores' }
             };
 
-            Plotly.newPlot('grafico', [trace1, trace2], layout);
+            Plotly.newPlot('grafico-historico', [trace1, trace2], layout);
+        }
+
+        // ======== GRÁFICO EM TEMPO REAL (Chart.js) ========
+        let ctx = null;
+        let graficoTempoReal = null;
+
+        function inicializarGraficoTempoReal() {
+            ctx = document.getElementById('grafico-tempo-real').getContext('2d');
+            graficoTempoReal = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Temp Média (°C)', data: [], backgroundColor: 'rgba(255,99,132,0.6)' },
+                        { label: 'Nível (%)', data: [], backgroundColor: 'rgba(54,162,235,0.6)' }
+                    ]
+                },
+                options: { responsive: true }
+            });
+        }
+
+        async function atualizarGraficoTempoReal() {
+            try {
+                let res = await fetch('/grafico-json?sensor_id=sensor1'); // troque pelo seu sensor_id
+                let dados = await res.json();
+                graficoTempoReal.data.labels = dados.labels;
+                graficoTempoReal.data.datasets[0].data = dados.temperatura;
+                graficoTempoReal.data.datasets[1].data = dados.nivel;
+                graficoTempoReal.update();
+            } catch (err) {
+                console.error("Erro ao atualizar gráfico em tempo real:", err);
+            }
         }
 
         setInterval(() => {
             carregarDadosSensores();
             atualizarEstado();
+            atualizarGraficoTempoReal();
         }, 5000);
+
+        window.onload = () => {
+            atualizarEstado();
+            carregarDadosSensores();
+            inicializarGraficoTempoReal();
+            atualizarGraficoTempoReal();
+        };
     </script>
 </head>
-<body onload="atualizarEstado(); carregarDadosSensores();">
+<body>
     <h1>H2OControl - Painel de Controle</h1>
     <p>💨 Estado atual da ventoinha: <strong id="estado">...</strong></p>
 
@@ -137,6 +181,9 @@
     <ul id="dados"></ul>
 
     <h2>📈 Gráfico de Leituras:</h2>
-    <div id="grafico"></div>
+    <div id="grafico-historico"></div>
+
+    <h2>📊 Gráfico em Tempo Real:</h2>
+    <canvas id="grafico-tempo-real"></canvas>
 </body>
 </html>

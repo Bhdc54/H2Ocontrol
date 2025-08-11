@@ -91,8 +91,10 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
     else:
         return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
 
-@router.get("/grafico", response_class=HTMLResponse)
-async def grafico(request: Request, sensor_id: str):
+from fastapi.responses import JSONResponse
+
+@router.get("/grafico-json")
+async def grafico_json(sensor_id: str):
     ALTURA_REAL = 350  # altura total do reservatório em cm
     db = get_firestore_client()
     leituras_ref = db.collection("sensores").document(sensor_id).collection("leituras").stream()
@@ -104,8 +106,6 @@ async def grafico(request: Request, sensor_id: str):
             dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
             temperatura = float(dados.get("temperatura", 0))
             distancia = float(dados.get("distancia", 0))
-
-            # Cálculo do nível (%) usando lógica JS adaptada
             nivel = 100 - min(100, max(0, (distancia / ALTURA_REAL) * 100))
 
             dados_lista.append({
@@ -118,53 +118,21 @@ async def grafico(request: Request, sensor_id: str):
             print("Erro ao processar leitura:", e)
 
     if not dados_lista:
-        return HTMLResponse("<h3>Sem dados disponíveis para este sensor.</h3>")
+        return JSONResponse({"erro": "Sem dados disponíveis para este sensor."}, status_code=404)
 
-    # Criar DataFrame
     df = pd.DataFrame(dados_lista)
 
-    # Agrupar por dia e fazer média
     medias = df.groupby(df['data'].dt.date).agg({
         'temperatura': 'mean',
         'nivel': 'mean'
     }).reset_index()
 
-    medias['hora'] = df.groupby(df['data'].dt.date)['hora'].first().values  # pega hora da 1ª leitura do dia
-
-    # Pegar a data mais recente
+    medias['hora'] = df.groupby(df['data'].dt.date)['hora'].first().values
     ultimo_dia = df['data'].max().date().strftime("%d/%m/%Y")
 
-    # Plot — gráfico de barras com médias
-    fig, ax1 = plt.subplots(figsize=(10, 5))
-
-    largura_barra = 0.35
-    x = range(len(medias['hora']))
-
-    # Temperatura
-    ax1.bar([i - largura_barra/2 for i in x], medias['temperatura'], largura_barra, color='red', label='Temp Média')
-    ax1.set_ylabel("Temperatura (°C)", color="red")
-    ax1.tick_params(axis='y', labelcolor="red")
-
-    # Nível de água
-    ax2 = ax1.twinx()
-    ax2.bar([i + largura_barra/2 for i in x], medias['nivel'], largura_barra, color='blue', label='Nível Médio')
-    ax2.set_ylabel("Nível (%)", color="blue")
-    ax2.tick_params(axis='y', labelcolor="blue")
-
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(medias['hora'], rotation=45)
-
-    plt.title(f"Média Diária de Temperatura e Nível de Água - {sensor_id}")
-    fig.tight_layout()
-
-    # Salvar gráfico em base64 para HTML
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-
-    html = f"""
-    <h2>Leituras do Sensor {sensor_id} - Média Diária ({ultimo_dia})</h2>
-    <img src='data:image/png;base64,{img_base64}'/>
-    """
-    return HTMLResponse(html)
+    return JSONResponse({
+        "labels": list(medias['hora']),
+        "temperatura": list(medias['temperatura']),
+        "nivel": list(medias['nivel']),
+        "data": ultimo_dia
+    })
