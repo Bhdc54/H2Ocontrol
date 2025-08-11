@@ -131,6 +131,9 @@ async def grafico(request: Request, sensor_id: str):
 
     medias['hora'] = df.groupby(df['data'].dt.date)['hora'].first().values  # pega hora da 1ª leitura do dia
 
+    # Pegar a data mais recente
+    ultimo_dia = df['data'].max().date().strftime("%d/%m/%Y")
+
     # Plot — gráfico de barras com médias
     fig, ax1 = plt.subplots(figsize=(10, 5))
 
@@ -161,7 +164,7 @@ async def grafico(request: Request, sensor_id: str):
     img_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
     html = f"""
-    <h2>Leituras do Sensor {sensor_id} - Média Diária</h2>
+    <h2>Leituras do Sensor {sensor_id} - Média Diária ({ultimo_dia})</h2>
     <img src='data:image/png;base64,{img_base64}'/>
     """
     return HTMLResponse(html)
