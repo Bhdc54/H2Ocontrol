@@ -93,6 +93,7 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
 
 @router.get("/grafico", response_class=HTMLResponse)
 async def grafico(request: Request, sensor_id: str):
+    ALTURA_REAL = 350  # altura total do reservatório em cm
     db = get_firestore_client()
     leituras_ref = db.collection("sensores").document(sensor_id).collection("leituras").stream()
 
@@ -103,7 +104,15 @@ async def grafico(request: Request, sensor_id: str):
             dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
             temperatura = float(dados.get("temperatura", 0))
             distancia = float(dados.get("distancia", 0))
-            dados_lista.append({"data": dt, "temperatura": temperatura, "distancia": distancia})
+
+            # Cálculo do nível (%) usando lógica JS adaptada
+            nivel = 100 - min(100, max(0, (distancia / ALTURA_REAL) * 100))
+
+            dados_lista.append({
+                "data": dt,
+                "temperatura": temperatura,
+                "nivel": nivel
+            })
         except Exception as e:
             print("Erro ao processar leitura:", e)
 
@@ -116,33 +125,39 @@ async def grafico(request: Request, sensor_id: str):
     # Agrupar por dia e pegar máximos e mínimos
     picos = df.groupby(df['data'].dt.date).agg({
         'temperatura': ['max', 'min'],
-        'distancia': ['max', 'min']
+        'nivel': ['max', 'min']
     }).reset_index()
 
     # Renomear colunas
-    picos.columns = ['data', 'temp_max', 'temp_min', 'dist_max', 'dist_min']
+    picos.columns = ['data', 'temp_max', 'temp_min', 'nivel_max', 'nivel_min']
 
-    # Plot
+    # Plot — gráfico de barras lado a lado
     fig, ax1 = plt.subplots(figsize=(10, 5))
 
-    ax1.set_xlabel("Data")
+    largura_barra = 0.35
+    x = range(len(picos['data']))
+
+    # Temperatura
+    ax1.bar([i - largura_barra/2 for i in x], picos['temp_max'], largura_barra, color='red', label='Temp Máx')
+    ax1.bar([i - largura_barra/2 for i in x], picos['temp_min'], largura_barra, color='pink', alpha=0.6, label='Temp Mín')
     ax1.set_ylabel("Temperatura (°C)", color="red")
-    ax1.plot(picos['data'], picos['temp_max'], 'r-o', label='Temp Máx')
-    ax1.plot(picos['data'], picos['temp_min'], 'r--o', label='Temp Mín')
     ax1.tick_params(axis='y', labelcolor="red")
 
+    # Nível de água
     ax2 = ax1.twinx()
-    ax2.set_ylabel("Distância (cm)", color="blue")
-    ax2.plot(picos['data'], picos['dist_max'], 'b-o', label='Dist Máx')
-    ax2.plot(picos['data'], picos['dist_min'], 'b--o', label='Dist Mín')
+    ax2.bar([i + largura_barra/2 for i in x], picos['nivel_max'], largura_barra, color='blue', label='Nível Máx')
+    ax2.bar([i + largura_barra/2 for i in x], picos['nivel_min'], largura_barra, color='lightblue', alpha=0.6, label='Nível Mín')
+    ax2.set_ylabel("Nível (%)", color="blue")
     ax2.tick_params(axis='y', labelcolor="blue")
 
-    plt.title(f"Picos de Temperatura e Distância - {sensor_id}")
-    fig.autofmt_xdate()
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(picos['data'], rotation=45)
+
+    plt.title(f"Picos Diários de Temperatura e Nível de Água - {sensor_id}")
+    fig.tight_layout()
 
     # Salvar gráfico em base64 para HTML
     buf = io.BytesIO()
-    plt.tight_layout()
     plt.savefig(buf, format="png")
     buf.seek(0)
     img_base64 = base64.b64encode(buf.read()).decode('utf-8')
