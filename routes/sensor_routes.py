@@ -11,6 +11,7 @@ from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estad
 from datetime import datetime, timezone, timedelta
 from typing import List
 from firebase_config import get_firestore_client
+from collections import defaultdict
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -95,13 +96,13 @@ async def grafico(sensor_id: str):
         db = get_firestore_client()
         colecao = db.collection("sensores").document(sensor_id).collection("leituras").stream()
 
-        datas, temperaturas, distancias = [], [], []
+        # Para agrupar por hora
+        dados_por_hora = defaultdict(list)
 
         for doc in colecao:
             dados = doc.to_dict()
             dt = None
 
-            # Processar data
             try:
                 if "timeStamp" in dados and not isinstance(dados["timeStamp"], str):
                     dt = dados["timeStamp"]
@@ -117,42 +118,43 @@ async def grafico(sensor_id: str):
                 temp = float(dados.get("temperatura", 0))
                 dist = float(dados.get("distancia", 0))
 
-                # Filtro de outliers
                 if -20 <= temp <= 80 and 0 <= dist <= 500:
-                    datas.append(dt)
-                    temperaturas.append(temp)
-                    distancias.append(dist)
+                    # chave no formato: ano, mês, dia, hora
+                    chave_hora = dt.replace(minute=0, second=0, microsecond=0)
+                    dados_por_hora[chave_hora].append((temp, dist))
             except:
                 continue
 
-        if not datas:
+        if not dados_por_hora:
             return HTMLResponse("<h3>Sem dados para gerar gráfico</h3>", status_code=404)
 
-        # Ordenar
-        datas, temperaturas, distancias = zip(*sorted(zip(datas, temperaturas, distancias)))
+        # Pega a média de cada hora
+        datas, temperaturas, distancias = [], [], []
+        for hora, valores in sorted(dados_por_hora.items()):
+            temps = [v[0] for v in valores]
+            dists = [v[1] for v in valores]
+            datas.append(hora)
+            temperaturas.append(sum(temps) / len(temps))
+            distancias.append(sum(dists) / len(dists))
 
-        # Criar gráfico com dois eixos Y
+        # --- gráfico igual ao anterior ---
         fig, ax1 = plt.subplots(figsize=(10, 5))
-
         ax1.set_xlabel("Data")
         ax1.set_ylabel("Temperatura (°C)", color="red")
-        ax1.plot(datas, temperaturas, "o-", color="red", label="Temperatura (°C)")
+        ax1.plot(datas, temperaturas, "o-", color="red")
         ax1.tick_params(axis="y", labelcolor="red")
 
         ax2 = ax1.twinx()
         ax2.set_ylabel("Distância (cm)", color="blue")
-        ax2.plot(datas, distancias, "x-", color="blue", label="Distância (cm)")
+        ax2.plot(datas, distancias, "x-", color="blue")
         ax2.tick_params(axis="y", labelcolor="blue")
 
-        # Formatar eixo X
         import matplotlib.dates as mdates
         ax1.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m\n%H:%M"))
         fig.autofmt_xdate()
-
         plt.title(f"Leituras do Sensor {sensor_id}")
         fig.tight_layout()
 
-        # Converter para base64
         buf = io.BytesIO()
         plt.savefig(buf, format="png")
         buf.seek(0)
