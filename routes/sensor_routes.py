@@ -95,7 +95,6 @@ from fastapi.responses import JSONResponse
 
 @router.get("/grafico-json")
 async def grafico_json(sensor_id: str):
-    ALTURA_REAL = 350  # altura total do reservatório em cm
     db = get_firestore_client()
     leituras_ref = db.collection("sensores").document(sensor_id).collection("leituras").stream()
 
@@ -122,12 +121,18 @@ async def grafico_json(sensor_id: str):
 
     df = pd.DataFrame(dados_lista)
 
+    # Mantém ordem cronológica
+    df = df.sort_values(by="data")
+
+    # Agrupa por dia e calcula médias
     medias = df.groupby(df['data'].dt.date).agg({
         'temperatura': 'mean',
         'nivel': 'mean'
     }).reset_index()
 
+    # Pega a primeira hora registrada do dia
     medias['hora'] = df.groupby(df['data'].dt.date)['hora'].first().values
+
     ultimo_dia = df['data'].max().date().strftime("%d/%m/%Y")
 
     return JSONResponse({
@@ -136,3 +141,11 @@ async def grafico_json(sensor_id: str):
         "nivel": list(medias['nivel']),
         "data": ultimo_dia
     })
+
+
+@router.get("/grafico", response_class=HTMLResponse)
+async def grafico(request: Request, sensor_id: str):
+    return templates.TemplateResponse(
+        "grafico.html",
+        {"request": request, "sensor_id": sensor_id}
+    )
