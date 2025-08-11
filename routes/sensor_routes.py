@@ -93,55 +93,82 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
 async def grafico(sensor_id: str):
     try:
         db = get_firestore_client()
-
-        # Pega as leituras do sensor específico
         colecao = db.collection("sensores").document(sensor_id).collection("leituras").stream()
 
         datas, temperaturas, distancias = [], [], []
 
         for doc in colecao:
             dados = doc.to_dict()
+            dt = None
 
-            # Detecta e converte a data
+            # Processar data
             try:
                 if "timeStamp" in dados and not isinstance(dados["timeStamp"], str):
                     dt = dados["timeStamp"]
                 elif "data" in dados:
                     dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
-                else:
-                    continue
-            except Exception as e:
-                print(f"Erro ao processar data do doc {doc.id}: {e}")
+            except:
                 continue
 
-            if dt and "temperatura" in dados and "distancia" in dados:
-                datas.append(dt)
-                temperaturas.append(float(dados["temperatura"]))
-                distancias.append(float(dados["distancia"]))
+            if dt is None:
+                continue
+
+            try:
+                temp = float(dados.get("temperatura", 0))
+                dist = float(dados.get("distancia", 0))
+
+                # Filtro de outliers
+                if -20 <= temp <= 80 and 0 <= dist <= 500:
+                    datas.append(dt)
+                    temperaturas.append(temp)
+                    distancias.append(dist)
+            except:
+                continue
 
         if not datas:
-            return HTMLResponse(content="<h3>Sem dados para gerar gráfico</h3>", status_code=404)
+            return HTMLResponse("<h3>Sem dados para gerar gráfico</h3>", status_code=404)
 
-        # Ordena por data
+        # Ordenar
         datas, temperaturas, distancias = zip(*sorted(zip(datas, temperaturas, distancias)))
 
-        # Cria gráfico
-        plt.figure(figsize=(10, 5))
-        plt.plot(datas, temperaturas, label="Temperatura (°C)", color="red", marker="o")
-        plt.plot(datas, distancias, label="Distância (cm)", color="blue", marker="x")
-        plt.xlabel("Data")
-        plt.ylabel("Valores")
-        plt.title(f"Leituras do Sensor {sensor_id}")
-        plt.legend()
-        plt.grid(True)
+        # Criar gráfico com dois eixos Y
+        fig, ax1 = plt.subplots(figsize=(10, 5))
 
+        ax1.set_xlabel("Data")
+        ax1.set_ylabel("Temperatura (°C)", color="red")
+        ax1.plot(datas, temperaturas, "o-", color="red", label="Temperatura (°C)")
+        ax1.tick_params(axis="y", labelcolor="red")
+
+        ax2 = ax1.twinx()
+        ax2.set_ylabel("Distância (cm)", color="blue")
+        ax2.plot(datas, distancias, "x-", color="blue", label="Distância (cm)")
+        ax2.tick_params(axis="y", labelcolor="blue")
+
+        # Formatar eixo X
+        import matplotlib.dates as mdates
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m\n%H:%M"))
+        fig.autofmt_xdate()
+
+        plt.title(f"Leituras do Sensor {sensor_id}")
+        fig.tight_layout()
+
+        # Converter para base64
         buf = io.BytesIO()
         plt.savefig(buf, format="png")
         buf.seek(0)
         img_base64 = base64.b64encode(buf.read()).decode("utf-8")
         buf.close()
 
-        return HTMLResponse(content=f'<img src="data:image/png;base64,{img_base64}"/>', status_code=200)
+        html_content = f"""
+        <html>
+        <head><title>Gráfico do Sensor</title></head>
+        <body>
+            <h2>Leituras do Sensor {sensor_id}</h2>
+            <img src="data:image/png;base64,{img_base64}"/>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
 
     except Exception as e:
         return HTMLResponse(content=f"Erro ao gerar gráfico: {e}", status_code=500)
