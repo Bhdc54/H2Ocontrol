@@ -1,6 +1,8 @@
 import io
 import base64
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg') 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -87,53 +89,59 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
     else:
         return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
 
-# NOVA ROTA PARA GRÁFICO
 @router.get("/grafico", response_class=HTMLResponse)
-async def grafico(request: Request, sensor_id: str):
-    db = get_firestore_client()
-    leituras_ref = db.collection("sensores").document(sensor_id).collection("leituras").stream()
+async def grafico(sensor_id: str):
+    try:
+        db = get_firestore_client()
 
-    dados_lista = []
-    for doc in leituras_ref:
-        dados = doc.to_dict()
-        try:
-            dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
-            dados_lista.append({
-                "data": dt,
-                "temperatura": dados.get("temperatura", 0),
-                "distancia": dados.get("distancia", 0)
-            })
-        except:
-            continue
+        # Pega as leituras do sensor específico
+        colecao = db.collection("sensores").document(sensor_id).collection("leituras").stream()
 
-    # Ordena pelo datetime
-    dados_lista.sort(key=lambda x: x["data"])
+        datas, temperaturas, distancias = [], [], []
 
-    if not dados_lista:
-        return HTMLResponse(content="<h3>Sem dados para este sensor.</h3>", status_code=200)
+        for doc in colecao:
+            dados = doc.to_dict()
 
-    datas = [item["data"] for item in dados_lista]
-    temperaturas = [item["temperatura"] for item in dados_lista]
-    distancias = [item["distancia"] for item in dados_lista]
+            # Detecta e converte a data
+            try:
+                if "timeStamp" in dados and not isinstance(dados["timeStamp"], str):
+                    dt = dados["timeStamp"]
+                elif "data" in dados:
+                    dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
+                else:
+                    continue
+            except Exception as e:
+                print(f"Erro ao processar data do doc {doc.id}: {e}")
+                continue
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(datas, temperaturas, label="Temperatura (°C)", color="red", marker="o")
-    plt.plot(datas, distancias, label="Distância (cm)", color="blue", marker="x")
-    plt.xlabel("Data")
-    plt.ylabel("Valores")
-    plt.title(f"Histórico do Sensor {sensor_id}")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
+            if dt and "temperatura" in dados and "distancia" in dados:
+                datas.append(dt)
+                temperaturas.append(float(dados["temperatura"]))
+                distancias.append(float(dados["distancia"]))
 
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode("utf-8")
-    plt.close()
+        if not datas:
+            return HTMLResponse(content="<h3>Sem dados para gerar gráfico</h3>", status_code=404)
 
-    return templates.TemplateResponse("grafico.html", {
-        "request": request,
-        "sensor_id": sensor_id,
-        "grafico": img_base64
-    })
+        # Ordena por data
+        datas, temperaturas, distancias = zip(*sorted(zip(datas, temperaturas, distancias)))
+
+        # Cria gráfico
+        plt.figure(figsize=(10, 5))
+        plt.plot(datas, temperaturas, label="Temperatura (°C)", color="red", marker="o")
+        plt.plot(datas, distancias, label="Distância (cm)", color="blue", marker="x")
+        plt.xlabel("Data")
+        plt.ylabel("Valores")
+        plt.title(f"Leituras do Sensor {sensor_id}")
+        plt.legend()
+        plt.grid(True)
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png")
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode("utf-8")
+        buf.close()
+
+        return HTMLResponse(content=f'<img src="data:image/png;base64,{img_base64}"/>', status_code=200)
+
+    except Exception as e:
+        return HTMLResponse(content=f"Erro ao gerar gráfico: {e}", status_code=500)
