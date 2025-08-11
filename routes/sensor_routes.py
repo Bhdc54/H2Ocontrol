@@ -2,6 +2,7 @@ import io
 import base64
 import matplotlib.pyplot as plt
 import matplotlib
+import pandas as pd
 matplotlib.use('Agg') 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -91,86 +92,63 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
         return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
 
 @router.get("/grafico", response_class=HTMLResponse)
-async def grafico(sensor_id: str):
-    try:
-        db = get_firestore_client()
-        colecao = db.collection("sensores").document(sensor_id).collection("leituras").stream()
+async def grafico(request: Request, sensor_id: str):
+    db = get_firestore_client()
+    leituras_ref = db.collection("sensores").document(sensor_id).collection("leituras").stream()
 
-        # Para agrupar por hora
-        dados_por_hora = defaultdict(list)
+    dados_lista = []
+    for doc in leituras_ref:
+        dados = doc.to_dict()
+        try:
+            dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
+            temperatura = float(dados.get("temperatura", 0))
+            distancia = float(dados.get("distancia", 0))
+            dados_lista.append({"data": dt, "temperatura": temperatura, "distancia": distancia})
+        except Exception as e:
+            print("Erro ao processar leitura:", e)
 
-        for doc in colecao:
-            dados = doc.to_dict()
-            dt = None
+    if not dados_lista:
+        return HTMLResponse("<h3>Sem dados disponíveis para este sensor.</h3>")
 
-            try:
-                if "timeStamp" in dados and not isinstance(dados["timeStamp"], str):
-                    dt = dados["timeStamp"]
-                elif "data" in dados:
-                    dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
-            except:
-                continue
+    # Criar DataFrame
+    df = pd.DataFrame(dados_lista)
 
-            if dt is None:
-                continue
+    # Agrupar por dia e pegar máximos e mínimos
+    picos = df.groupby(df['data'].dt.date).agg({
+        'temperatura': ['max', 'min'],
+        'distancia': ['max', 'min']
+    }).reset_index()
 
-            try:
-                temp = float(dados.get("temperatura", 0))
-                dist = float(dados.get("distancia", 0))
+    # Renomear colunas
+    picos.columns = ['data', 'temp_max', 'temp_min', 'dist_max', 'dist_min']
 
-                if -20 <= temp <= 80 and 0 <= dist <= 500:
-                    # chave no formato: ano, mês, dia, hora
-                    chave_hora = dt.replace(minute=0, second=0, microsecond=0)
-                    dados_por_hora[chave_hora].append((temp, dist))
-            except:
-                continue
+    # Plot
+    fig, ax1 = plt.subplots(figsize=(10, 5))
 
-        if not dados_por_hora:
-            return HTMLResponse("<h3>Sem dados para gerar gráfico</h3>", status_code=404)
+    ax1.set_xlabel("Data")
+    ax1.set_ylabel("Temperatura (°C)", color="red")
+    ax1.plot(picos['data'], picos['temp_max'], 'r-o', label='Temp Máx')
+    ax1.plot(picos['data'], picos['temp_min'], 'r--o', label='Temp Mín')
+    ax1.tick_params(axis='y', labelcolor="red")
 
-        # Pega a média de cada hora
-        datas, temperaturas, distancias = [], [], []
-        for hora, valores in sorted(dados_por_hora.items()):
-            temps = [v[0] for v in valores]
-            dists = [v[1] for v in valores]
-            datas.append(hora)
-            temperaturas.append(sum(temps) / len(temps))
-            distancias.append(sum(dists) / len(dists))
+    ax2 = ax1.twinx()
+    ax2.set_ylabel("Distância (cm)", color="blue")
+    ax2.plot(picos['data'], picos['dist_max'], 'b-o', label='Dist Máx')
+    ax2.plot(picos['data'], picos['dist_min'], 'b--o', label='Dist Mín')
+    ax2.tick_params(axis='y', labelcolor="blue")
 
-        # --- gráfico igual ao anterior ---
-        fig, ax1 = plt.subplots(figsize=(10, 5))
-        ax1.set_xlabel("Data")
-        ax1.set_ylabel("Temperatura (°C)", color="red")
-        ax1.plot(datas, temperaturas, "o-", color="red")
-        ax1.tick_params(axis="y", labelcolor="red")
+    plt.title(f"Picos de Temperatura e Distância - {sensor_id}")
+    fig.autofmt_xdate()
 
-        ax2 = ax1.twinx()
-        ax2.set_ylabel("Distância (cm)", color="blue")
-        ax2.plot(datas, distancias, "x-", color="blue")
-        ax2.tick_params(axis="y", labelcolor="blue")
+    # Salvar gráfico em base64 para HTML
+    buf = io.BytesIO()
+    plt.tight_layout()
+    plt.savefig(buf, format="png")
+    buf.seek(0)
+    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
-        import matplotlib.dates as mdates
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m\n%H:%M"))
-        fig.autofmt_xdate()
-        plt.title(f"Leituras do Sensor {sensor_id}")
-        fig.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format="png")
-        buf.seek(0)
-        img_base64 = base64.b64encode(buf.read()).decode("utf-8")
-        buf.close()
-
-        html_content = f"""
-        <html>
-        <head><title>Gráfico do Sensor</title></head>
-        <body>
-            <h2>Leituras do Sensor {sensor_id}</h2>
-            <img src="data:image/png;base64,{img_base64}"/>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html_content)
-
-    except Exception as e:
-        return HTMLResponse(content=f"Erro ao gerar gráfico: {e}", status_code=500)
+    html = f"""
+    <h2>Leituras do Sensor {sensor_id} - Picos Diários</h2>
+    <img src='data:image/png;base64,{img_base64}'/>
+    """
+    return HTMLResponse(html)
