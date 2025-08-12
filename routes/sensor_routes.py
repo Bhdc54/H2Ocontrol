@@ -1,9 +1,9 @@
 import io
 import base64
-import matplotlib.pyplot as plt
-import matplotlib
-import pandas as pd
-matplotlib.use('Agg') 
+#import matplotlib.pyplot as plt
+#import matplotlib
+#import pandas as pd
+#matplotlib.use('Agg') 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -12,7 +12,7 @@ from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estad
 from datetime import datetime, timezone, timedelta
 from typing import List
 from firebase_config import get_firestore_client
-from collections import defaultdict
+#from collections import defaultdict
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -93,7 +93,7 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
 
 from fastapi.responses import JSONResponse
 
-@router.get("/grafico-json")
+""" @router.get("/grafico-json")
 async def grafico_json(sensor_id: str):
     ALTURA_REAL = 350  # altura total do reservatório em cm
     db = get_firestore_client()
@@ -138,4 +138,4 @@ async def grafico_json(sensor_id: str):
     })
 @router.get("/grafico", response_class=HTMLResponse)
 async def grafico(request: Request, sensor_id: str):
-    return templates.TemplateResponse("grafico.html", {"request": request, "sensor_id": sensor_id})
+    return templates.TemplateResponse("grafico.html", {"request": request, "sensor_id": sensor_id})"""
