@@ -1,18 +1,11 @@
-import io
-import base64
-#import matplotlib.pyplot as plt
-#import matplotlib
-#import pandas as pd
-#matplotlib.use('Agg') 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from models.sensor_models import SensorData, VentoinhaState
 from services.ventoinha_service import set_ventoinha_estado, get_ventoinha_estado
+from services.aquecedor_service import set_aquecedor_estado, get_aquecedor_estado
 from datetime import datetime, timezone, timedelta
-from typing import List
 from firebase_config import get_firestore_client
-#from collections import defaultdict
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -53,18 +46,28 @@ async def receber_dados(data: SensorData):
             temp_max = aquario_data.get("tempMaxima")
             temp_min = aquario_data.get("tempMinima")
 
-            estado_atual = get_ventoinha_estado()
+            estado_ventoinha = get_ventoinha_estado()
+            estado_aquecedor = get_aquecedor_estado()
 
+            # Lógica da ventoinha
             if temp_max is not None:
-                if data.temperatura >= temp_max and estado_atual == "desligado":
+                if data.temperatura >= temp_max and estado_ventoinha == "desligado":
                     set_ventoinha_estado("ligado")
-                elif data.temperatura < temp_max - 1 and estado_atual == "ligado":
+                elif data.temperatura < temp_max - 1 and estado_ventoinha == "ligado":
                     set_ventoinha_estado("desligado")
+
+            # Lógica do aquecedor
+            if temp_min is not None:
+                if data.temperatura <= temp_min and estado_aquecedor == "desligado":
+                    set_aquecedor_estado("ligado")
+                elif data.temperatura > temp_min + 1 and estado_aquecedor == "ligado":
+                    set_aquecedor_estado("desligado")
 
         return {
             "status": "sucesso",
             "timestamp": agora.isoformat(),
-            "estado_ventoinha": get_ventoinha_estado()
+            "estado_ventoinha": get_ventoinha_estado(),
+            "estado_aquecedor": get_aquecedor_estado()
         }
 
     except Exception as e:
@@ -90,52 +93,3 @@ async def definir_estado_ventoinha(estado: VentoinhaState):
         return {"mensagem": f"Ventoinha agora está {get_ventoinha_estado()}"}
     else:
         return {"erro": "Estado inválido! Use 'ligado' ou 'desligado'."}
-
-from fastapi.responses import JSONResponse
-
-""" @router.get("/grafico-json")
-async def grafico_json(sensor_id: str):
-    ALTURA_REAL = 350  # altura total do reservatório em cm
-    db = get_firestore_client()
-    leituras_ref = db.collection("sensores").document(sensor_id).collection("leituras").stream()
-
-    dados_lista = []
-    for doc in leituras_ref:
-        dados = doc.to_dict()
-        try:
-            dt = datetime.strptime(dados["data"], "%d/%m/%Y %H:%M:%S")
-            temperatura = float(dados.get("temperatura", 0))
-            distancia = float(dados.get("distancia", 0))
-            nivel = 100 - min(100, max(0, (distancia / ALTURA_REAL) * 100))
-
-            dados_lista.append({
-                "data": dt,
-                "hora": dt.strftime("%H:%M"),
-                "temperatura": temperatura,
-                "nivel": nivel
-            })
-        except Exception as e:
-            print("Erro ao processar leitura:", e)
-
-    if not dados_lista:
-        return JSONResponse({"erro": "Sem dados disponíveis para este sensor."}, status_code=404)
-
-    df = pd.DataFrame(dados_lista)
-
-    medias = df.groupby(df['data'].dt.date).agg({
-        'temperatura': 'mean',
-        'nivel': 'mean'
-    }).reset_index()
-
-    medias['hora'] = df.groupby(df['data'].dt.date)['hora'].first().values
-    ultimo_dia = df['data'].max().date().strftime("%d/%m/%Y")
-
-    return JSONResponse({
-        "labels": list(medias['hora']),
-        "temperatura": list(medias['temperatura']),
-        "nivel": list(medias['nivel']),
-        "data": ultimo_dia
-    })
-@router.get("/grafico", response_class=HTMLResponse)
-async def grafico(request: Request, sensor_id: str):
-    return templates.TemplateResponse("grafico.html", {"request": request, "sensor_id": sensor_id})"""
