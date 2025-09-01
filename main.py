@@ -1,10 +1,9 @@
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 from routes.sensor_routes import router as sensor_router
-from routes.notificacoes_routes import router as notificacao_router  # ✅ Nova rota
+from routes.notificacoes_routes import router as notificacao_router  
 from routes.ventoinha_routes import router as ventoinha_router
-
-# Inicializa o Firebase
+from routes.aquecerdor_routes import router as aquecedor_router  
 try:
     import firebase_config
     print("✅ Firebase inicializado com sucesso!")
@@ -24,6 +23,7 @@ templates = Jinja2Templates(directory="templates")
 app.include_router(sensor_router)
 app.include_router(notificacao_router)
 app.include_router(ventoinha_router)
+app.include_router(aquecedor_router)  # ✅ Nova rota
 # Health check
 @app.get("/health")
 async def health_check():
