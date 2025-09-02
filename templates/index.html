@@ -154,14 +154,39 @@
             }
         }
 
+        async function atualizarEstadoAquecedor() {
+            try {
+                const res = await fetch("/aquecedor");
+                const data = await res.json();
+                document.getElementById("estado-aquecedor").innerText = data.estado || "Desconhecido";
+            } catch (err) {
+                console.error("Erro ao atualizar estado do aquecedor:", err);
+            }
+        }
+
+        async function alterarEstadoAquecedor(novoEstado) {
+            try {
+                await fetch("/aquecedor", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ estado: novoEstado })
+                });
+                atualizarEstadoAquecedor();
+            } catch (err) {
+                console.error("Erro ao alterar estado do aquecedor:", err);
+            }
+        }
+
         setInterval(() => {
             carregarDadosSensores();
             atualizarEstado();
+            atualizarEstadoAquecedor();
             atualizarGraficoTempoReal();
         }, 5000);
 
         window.onload = () => {
             atualizarEstado();
+            atualizarEstadoAquecedor();
             carregarDadosSensores();
             inicializarGraficoTempoReal();
             atualizarGraficoTempoReal();
@@ -171,10 +196,13 @@
 <body>
     <h1>H2OControl - Painel de Controle</h1>
     <p>💨 Estado atual da ventoinha: <strong id="estado">...</strong></p>
+    <p>🔥 Estado atual do aquecedor: <strong id="estado-aquecedor">...</strong></p>
 
     <div class="botoes">
         <button onclick="alterarEstado('ligado')">Ligar Ventoinha</button>
         <button onclick="alterarEstado('desligado')">Desligar Ventoinha</button>
+        <button onclick="alterarEstadoAquecedor('ligado')">Ligar Aquecedor</button>
+        <button onclick="alterarEstadoAquecedor('desligado')">Desligar Aquecedor</button>
     </div>
 
     <h2>📊 Últimos dados recebidos:</h2>
