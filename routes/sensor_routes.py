@@ -26,7 +26,7 @@ async def receber_dados(data: SensorData):
         db.collection("sensores").document(data.sensorID).set({
             "temperatura": data.temperatura,
             "distancia": data.distancia,
-            "data": agora.strftime("%d/%m/%Y %H:%M:%S")
+            "data": agora
         }, merge=True)
 
         # Salva leitura no histórico
@@ -34,7 +34,7 @@ async def receber_dados(data: SensorData):
             "sensorID": data.sensorID,
             "temperatura": data.temperatura,
             "distancia": data.distancia,
-            "data": agora.strftime("%d/%m/%Y %H:%M:%S")
+            "data": agora
         })
 
         # Verifica limites de temperatura
